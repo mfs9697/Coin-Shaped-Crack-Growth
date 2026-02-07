@@ -40,7 +40,7 @@ eldf = ncoord*nelnodes;
 ndof = ncoord*nnodes;
 
 nip3 = cfg.elem.nip3;
-[xip3,w3,Nextr] = IntegtationParameters(nip3, nelnodes, @N_3DT);
+[xip3,w3,Nextr] = IntegrationParameters(nip3, nelnodes, @N_3DT);
 
 % element volumes
 velem = zeros(nelem,1);

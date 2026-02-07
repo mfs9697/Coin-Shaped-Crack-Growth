@@ -1,4 +1,4 @@
-function [xip3,w3,Nextr]=IntegtationParameters(nip3,nelnodes,N)
+function [xip3,w3,Nextr]=IntegrationParameters(nip3,nelnodes,N)
         % Quadrature Integration Points and Weights for Volume Integrals
         if nip3==4
             dat=[0.5854101966249680 0.1381966011250110 0.1381966011250110 0.1381966011250110 0.2500000000000000
