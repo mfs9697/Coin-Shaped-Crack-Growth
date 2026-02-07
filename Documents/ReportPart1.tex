@@ -1,0 +1,125 @@
+%==================================================
+% ПРЕАМБУЛА
+%==================================================
+\documentclass[12pt,a4paper]{article}
+
+% --- Мова та кодування ---
+\usepackage[ukrainian]{babel}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+
+% --- Геометрія сторінки ---
+\usepackage[a4paper,margin=25mm]{geometry}
+
+% --- Математика ---
+\usepackage{amsmath,amssymb,bm}
+
+% --- Графіка ---
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{subcaption}
+
+% --- Таблиці та одиниці ---
+\usepackage{booktabs}
+\usepackage{siunitx}
+
+% --- Посилання ---
+\usepackage{hyperref}
+\hypersetup{
+	colorlinks=true,
+	linkcolor=blue,
+	citecolor=blue,
+	urlcolor=blue
+}
+
+% --- Підписи ---
+\usepackage{caption}
+\captionsetup{
+	font=small,
+	labelfont=bf,
+	justification=centering
+}
+
+% --- Абзаци ---
+\setlength{\parindent}{1.25cm}
+\setlength{\parskip}{0pt}
+
+%==================================================
+\begin{document}
+\subsection*{2.3 Поширення дископодібної тріщини, залежне від часу}
+\label{subsec:coin_crack}
+
+У розділі наведено результати чисельного дослідження поширення
+дископодібної тріщини, залежного від часу, у тривимірному в’язкопружному тілі.
+Ріст тріщини зумовлений релаксацією напружень за сталого зовнішнього
+навантаження та відбувається у квазістатичному режимі.
+Аналіз спрямований на виявлення якісних особливостей еволюції
+когезійної зони та напружено-деформованого стану поблизу фронту тріщини.
+
+Розрахунки виконано з урахуванням симетрії задачі для восьмої частини
+просторової області.
+Поблизу фронту тріщини використано локально згущену скінченно-елементну
+сітку, у межах якої введено когезійну зону, що описує процес відриву
+берегів тріщини за законом «зчеплення–відрив».
+Такий підхід дозволив простежити еволюцію процесної зони та
+перерозподіл напружень у часі без порушення чисельної стійкості.
+
+На рис.~\ref{fig:profiles} показано еволюцію розкриття тріщини та
+когезійних сил уздовж її поверхні для послідовних моментів часу.
+На початковій стадії спостерігається інкубаційний період, протягом якого
+радіус тріщини залишається сталим, однак відбувається перерозподіл
+напружень і локалізація деформацій у зоні фронту.
+Подальше зростання тріщини супроводжується поступовим зміщенням
+когезійної зони назовні, при цьому зберігається гладкий характер
+розподілу як розкриття, так і когезійних сил.
+Отримані результати свідчать про стабільний характер росту тріщини,
+керований релаксаційними властивостями матеріалу.
+
+\begin{figure}[H]
+	\centering
+	\begin{tabular}{cc}
+		\includegraphics[width=0.4\textwidth]{Fig2_k000_t0.png} &
+		\includegraphics[width=0.4\textwidth]{Fig2_k001_t49.3.png} \\
+		\includegraphics[width=0.4\textwidth]{Fig2_k002_t88.05.png} &
+		\includegraphics[width=0.4\textwidth]{Fig2_k003_t118.4.png} \\
+		\includegraphics[width=0.4\textwidth]{Fig2_k004_t143.5.png} &
+		\includegraphics[width=0.4\textwidth]{Fig2_k005_t164.3.png} \\
+		\includegraphics[width=0.4\textwidth]{Fig2_k006_t181.7.png} &
+		\includegraphics[width=0.4\textwidth]{Fig2_k007_t194.8.png} \\
+		\includegraphics[width=0.4\textwidth]{Fig2_k008_t204.4.png} &
+		\includegraphics[width=0.4\textwidth]{Fig2_k009_t210.6.png}
+	\end{tabular}
+	\caption{Еволюція розкриття тріщини та когезійних сил.}
+	\label{fig:profiles}
+\end{figure}
+
+На рис.~\ref{fig:stress_field} наведено поле напружень поблизу фронту
+тріщини для характерних моментів часу:
+початкового моменту,
+моменту завершення інкубації тріщини
+та моменту, близького до ініціювання динамічного руйнування.
+Видно формування кільцевої зони підвищених напружень,
+яка супроводжує фронт тріщини та поступово зміщується разом із ним у
+процесі росту.
+Отримана картина підтверджує якісну узгодженість чисельних результатів
+із уявленнями механіки руйнування та демонструє можливість
+опису інкубаційних ефектів у тривимірних задачах з використанням
+когезійного підходу.
+
+\begin{figure}[H]
+	\centering
+	\begin{subfigure}[t]{0.32\textwidth}
+		\includegraphics[width=\textwidth]{Stress0.png}
+	\end{subfigure}\hfill
+	\begin{subfigure}[t]{0.32\textwidth}
+		\includegraphics[width=\textwidth]{Stress1.png}
+	\end{subfigure}\hfill
+	\begin{subfigure}[t]{0.32\textwidth}
+		\includegraphics[width=\textwidth]{Stress2.png}
+	\end{subfigure}
+	\caption{Поле напружень поблизу фронту тріщини.}
+	\label{fig:stress_field}
+\end{figure}
+
+\end{document}
+%==================================================

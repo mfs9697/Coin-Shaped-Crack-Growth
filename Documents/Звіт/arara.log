@@ -1,0 +1,14 @@
+24 Dec 2025 22:03:45.593 INFO  - 
+Welcome to arara 7.2.0!
+-----------------------------------------------------------------
+24 Dec 2025 22:03:45.593 DEBUG - 
+::: arara @ C:\Users\Mikhailo\AppData\Local\Programs\MiKTeX\scripts\arara
+::: Java 21.0.7, Eclipse Adoptium
+::: C:\Program Files\Eclipse Adoptium\jdk-21.0.7.6-hotspot
+::: Windows 11, amd64, 10.0
+::: user.home @ C:\Users\Mikhailo
+::: CF @ [none]
+-----------------------------------------------------------------
+24 Dec 2025 22:03:45.609 INFO  - Processing "Presentation.tex" (size: 14.2 kB, last modified: 2025-12-24 20:03:44), please wait.
+24 Dec 2025 22:03:45.643 ERROR - It looks like no directives were found in the provided file. Make sure to include at least one directive and try again.
+24 Dec 2025 22:03:45.658 INFO  - Total: 0.363 seconds

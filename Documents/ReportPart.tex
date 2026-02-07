@@ -1,0 +1,278 @@
+	\documentclass[12pt,a4paper]{article}
+	
+	\usepackage[margin=25mm]{geometry}
+	\usepackage{amsmath,amssymb}
+	\usepackage{graphicx}
+	\usepackage{float}
+	\usepackage{booktabs}
+	\usepackage{subcaption}
+	\usepackage{caption}
+	\usepackage{siunitx}
+	\usepackage{hyperref}
+	
+	\captionsetup{font=small,labelfont=bf}
+	\hypersetup{
+		colorlinks=true,
+		linkcolor=blue,
+		citecolor=blue,
+		urlcolor=blue
+	}
+	
+	\begin{document}
+		
+		%========================================================
+		\section{Time-dependent propagation of a coin-shaped crack}
+		\label{sec:coin_crack}
+		
+		In this section, the propagation of a coin-shaped (penny-shaped) crack in a
+		three-dimensional viscoelastic solid is investigated using a cohesive-zone-based
+		finite-element formulation. Crack growth is driven by stress relaxation under a
+		prescribed external loading and is described as a sequence of quasi-static
+		equilibrium states with an explicitly tracked crack front.
+		
+		The analysis exploits symmetry and considers a quarter of the crack embedded in
+		a cubic block. A locally refined finite-element mesh is introduced in an annular
+		region surrounding the crack front, while coarser elements are used away from
+		this zone. A cohesive interface with a finite process zone is embedded along the
+		crack surface and governed by a smoothed trapezoidal traction--separation law.
+		
+		% -------------------------------------------------
+		\subsection{Crack-growth criterion and control parameter}
+		\label{subsec:criterion_kD}
+		
+		Crack propagation is controlled by a local opening condition evaluated at the
+		current crack-front node. At each propagation step, the following criterion is
+		enforced:
+		\begin{equation}
+			\frac{2u_z}{\Delta_{\max}} = k_D ,
+			\label{eq:opening_criterion}
+		\end{equation}
+		where $u_z$ is the normal opening displacement at the active crack-front node,
+		$\Delta_{\max}$ is the critical cohesive opening displacement, and
+		$k_D \in (0,1]$ is a prescribed damage parameter.
+		
+		The parameter $k_D$ is increased incrementally. Once $k_D = 1$ is reached, the
+		crack front advances to the next node along the predefined crack path. This
+		strategy provides a controlled and stable simulation of crack-front evolution
+		without introducing ad hoc remeshing or heuristic growth rules. In the present
+		implementation, the crack-front advance is realized by updating the active
+		cohesive index (front node) and continuing the damage-controlled evolution for
+		the next segment of the predefined front.
+		
+		% -------------------------------------------------
+		\subsection{Determination of the physical time increment}
+		\label{subsec:dt_fzero}
+		
+		A central aspect of the algorithm is the determination of the physical time
+		increment corresponding to a prescribed external stress level. Instead of
+		introducing an artificial time step, the increment $\Delta t$ is computed
+		implicitly from the nonlinear condition
+		\begin{equation}
+			\sigma_z(\Delta t) = \sigma^{\mathrm{ext}},
+			\label{eq:time_condition}
+		\end{equation}
+		where $\sigma^{\mathrm{ext}}$ is the applied external stress and $\sigma_z$ is the
+		stress response at the crack front accounting for viscoelastic relaxation.
+		
+		Equation~\eqref{eq:time_condition} is solved using the MATLAB root-finding routine
+		\texttt{fzero}. For a given trial value of $\Delta t$, the viscoelastic internal
+		variables are updated analytically using exponential relaxation kernels, the
+		tangent stiffness matrix is reconstructed, and the global equilibrium problem is
+		solved. The resulting stress level is then compared with
+		$\sigma^{\mathrm{ext}}$, and the root of
+		$\sigma_z(\Delta t) - \sigma^{\mathrm{ext}} = 0$ is determined.
+		
+		To ensure robustness, the root is bracketed automatically by scanning $\Delta t$
+		over a small set of logarithmically spaced trial values. The first sign change of
+		$g(\Delta t)=\sigma_z(\Delta t)-\sigma^{\mathrm{ext}}$ defines a valid bracket
+		interval for \texttt{fzero}. In the reported computations, this bracketing
+		strategy resulted in stable convergence, with residuals reduced to machine
+		precision and without sensitivity to the initial guess. Importantly, the computed
+		$\Delta t$ provides a physically meaningful time scale governed directly by the
+		material relaxation properties.
+		
+		% -------------------------------------------------
+		\subsection{Displacement and stress profiles at the crack surface}
+		\label{subsec:profiles}
+		
+		The evolution of the cohesive zone is conveniently illustrated through profiles
+		along the crack surface. At each saved step, we plot the normalized crack opening
+		$2u_z/\Delta_{\max}$ and the normalized normal stress $\sigma_z/\sigma_{\max}$ as
+		functions of the radial coordinate $x$ measured along the crack surface. The
+		current crack radius $R_c$ is indicated by the vertical dashed line.
+		
+		A practical observation in three-dimensional cohesive simulations is that for
+		shallow meshes the raw stress component $\sigma_z$ may exhibit unphysical sign
+		changes near the front due to discretization effects. To avoid misleading trends,
+		we therefore present the \emph{normalized} stress $\sigma_z/\sigma_{\max}$, which
+		remains within $[0,1]$ and enables consistent comparison between time steps.
+		
+		Figure~\ref{fig:profiles_grid} summarizes ten steps for which the cohesive zone
+		remains fully inside the refinement ring. The plots demonstrate:
+		(i) a strong localization of the opening field near the crack front,
+		(ii) a pronounced, smooth stress peak within the cohesive/process zone, and
+		(iii) a systematic outward shift of the profiles as the crack advances.
+		
+		\begin{figure}[H]
+			\centering
+			\captionsetup{justification=centering}
+			\begin{subfigure}[t]{0.4\textwidth}
+				\centering
+				\includegraphics[width=\textwidth]{Fig2_k000_t0.png}
+			\end{subfigure}\hfill
+			\begin{subfigure}[t]{0.4\textwidth}
+				\centering
+				\includegraphics[width=\textwidth]{Fig2_k001_t49.3.png}
+				\caption{$k=1$, $t=49.3$ s}
+			\end{subfigure}
+			
+			\begin{subfigure}[t]{0.4\textwidth}
+				\centering
+				\includegraphics[width=\textwidth]{Fig2_k002_t88.05.png}
+			\end{subfigure}\hfill
+			\begin{subfigure}[t]{0.4\textwidth}
+				\centering
+				\includegraphics[width=\textwidth]{Fig2_k003_t118.4.png}
+			\end{subfigure}
+			
+			\begin{subfigure}[t]{0.4\textwidth}
+				\centering
+				\includegraphics[width=\textwidth]{Fig2_k004_t143.5.png}
+			\end{subfigure}\hfill
+			\begin{subfigure}[t]{0.4\textwidth}
+				\centering
+				\includegraphics[width=\textwidth]{Fig2_k005_t164.3.png}
+			\end{subfigure}
+			
+			\begin{subfigure}[t]{0.4\textwidth}
+				\centering
+				\includegraphics[width=\textwidth]{Fig2_k006_t181.7.png}
+			\end{subfigure}\hfill
+			\begin{subfigure}[t]{0.4\textwidth}
+				\centering
+				\includegraphics[width=\textwidth]{Fig2_k007_t194.8.png}
+			\end{subfigure}
+			
+			\begin{subfigure}[t]{0.4\textwidth}
+				\centering
+				\includegraphics[width=\textwidth]{Fig2_k008_t204.4.png}
+			\end{subfigure}\hfill
+			\begin{subfigure}[t]{0.4\textwidth}
+				\centering
+				\includegraphics[width=\textwidth]{Fig2_k009_t210.6.png}
+			\end{subfigure}
+			
+			\caption{Normalized cohesive profiles along the crack surface at ten successive
+				steps while the cohesive/process zone remains inside the refinement ring.
+				Each panel shows $2u_z/\Delta_{\max}$ and $\sigma_z/\sigma_{\max}$ versus $x$,
+				with the current crack radius $R_c$ marked by the vertical dashed line.}
+			\label{fig:profiles_grid}
+		\end{figure}
+		
+		% -------------------------------------------------
+		\subsection{Time--radius relationship}
+		\label{subsec:time_radius}
+		
+		The evolution of the crack radius $a(t)$ obtained from the proposed algorithm is
+		shown in Fig.~\ref{fig:time_radius}. An initial incubation stage with a
+		stationary crack is followed by a phase of accelerated crack growth once the
+		critical opening condition~\eqref{eq:opening_criterion} is satisfied.
+		This behavior emerges naturally from the coupled solution of the viscoelastic
+		constitutive equations, the cohesive-zone model, and the implicit determination
+		of the time increment. No additional assumptions regarding the crack-growth rate
+		are introduced.
+		
+		\begin{figure}[H]
+			\centering
+			\includegraphics[width=0.50\textwidth]{Time-Radius.png}
+			\caption{Time--radius curve $a(t)$ for the coin-shaped crack. The incubation
+				stage (no growth) is followed by stable quasi-static propagation driven by
+				viscoelastic relaxation under sustained loading.}
+			\label{fig:time_radius}
+		\end{figure}
+		
+		For transparency, Table~\ref{tab:time_radius_points} summarizes the crack radius
+		recorded at the ten saved steps. The crack remains at $a_0=3.0$~cm during the
+		early part of the simulation and subsequently increases monotonically as the
+		front advances in the refined ring.
+		
+		\begin{table}[H]
+			\centering
+			\caption{Recorded crack radius $a(t)$ at the saved steps corresponding to
+				Fig.~\ref{fig:profiles_grid}.}
+			\label{tab:time_radius_points}
+			\small
+			\begin{tabular}{@{}rS[table-format=3.1]S[table-format=1.4]@{}}
+				\toprule
+				{$k$} & {$t$ [s]} & {$a(t)$ [cm]} \\
+				\midrule
+				0 & 0.0   & 3.0000 \\
+				1 & 49.3  & 3.0000 \\
+				2 & 88.1  & 3.0000 \\
+				3 & 118.4 & 3.0000 \\
+				4 & 143.5 & 3.0938 \\
+				5 & 164.3 & 3.1875 \\
+				6 & 181.7 & 3.2813 \\
+				7 & 194.8 & 3.3750 \\
+				8 & 204.4 & 3.4688 \\
+				9 & 210.6 & 3.5625 \\
+				\bottomrule
+			\end{tabular}
+		\end{table}
+		
+		% -------------------------------------------------
+		\subsection{Stress field near the crack front: initial, incubation, and growth stages}
+		\label{subsec:stress_fields}
+		
+		To visualize the spatial evolution of the fracture process zone, we plot the
+		normalized stress field $\sigma_z/\sigma_{\max}$ at three characteristic time
+		instants: (i) $t=0$~s (initial), (ii) $t=118.4$~s (end of incubation), and
+		(iii) $t=210.6$~s (advanced growth). The results are shown in
+		Fig.~\ref{fig:stress_fields_3}.
+		
+		At $t=0$~s, the stress concentration is localized near the initial crack front,
+		and the cohesive annulus is confined to the refined ring. During the incubation
+		stage, the crack radius remains unchanged; nevertheless, viscoelastic relaxation
+		redistributes stresses in the vicinity of the front. At $t=118.4$~s, the stress
+		field indicates that the system approaches the critical configuration at which
+		the cohesive condition~\eqref{eq:opening_criterion} becomes active. Finally, at
+		$t=210.6$~s, the zone of elevated stresses has shifted outward consistently with
+		the increased crack radius, demonstrating stable quasi-static propagation with a
+		smooth stress gradient across the cohesive/process zone.
+		
+		\begin{figure}[H]
+			\centering
+			\begin{subfigure}[t]{0.32\textwidth}
+				\centering
+				\includegraphics[width=\textwidth]{Stress0.png}
+				\caption{$t=0$ s}
+			\end{subfigure}\hfill
+			\begin{subfigure}[t]{0.32\textwidth}
+				\centering
+				\includegraphics[width=\textwidth]{Stress1.png}
+				\caption{$t=118.4$ s (incubation)}
+			\end{subfigure}\hfill
+			\begin{subfigure}[t]{0.32\textwidth}
+				\centering
+				\includegraphics[width=\textwidth]{Stress2.png}
+				\caption{$t=210.6$ s (growth)}
+			\end{subfigure}
+			\caption{Normalized stress field $\sigma_z/\sigma_{\max}$ near the crack front
+				at three characteristic time instants: initial state, end of incubation, and
+				advanced propagation. The annular zone of elevated stress tracks the crack edge,
+				confirming consistent front evolution and adequate resolution of the cohesive
+				process zone by the refinement ring.}
+			\label{fig:stress_fields_3}
+		\end{figure}
+		
+		\noindent
+		Overall, the combined analysis of profiles (Fig.~\ref{fig:profiles_grid}),
+		the time--radius curve (Fig.~\ref{fig:time_radius}), and the stress-field
+		snapshots (Fig.~\ref{fig:stress_fields_3}) confirms that crack advance in the
+		present problem is governed by a time-dependent mechanism: a delayed activation
+		(incubation) followed by stable quasi-static propagation driven by viscoelastic
+		relaxation under sustained loading.
+		
+	\end{document}
+	
+	
