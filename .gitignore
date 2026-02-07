@@ -1,0 +1,25 @@
+# ===============================
+# MATLAB autosaves and backups
+# ===============================
+*.asv
+*.m~
+
+# ===============================
+# Generated figures / outputs
+# ===============================
+Fig2_frames/
+*.png
+*.jpg
+
+# ===============================
+# MATLAB generated folders
+# ===============================
+**/slprj/
+**/codegen/
+**/autosave/
+
+# ===============================
+# Optional: local output folders
+# ===============================
+out/
+tmp/
