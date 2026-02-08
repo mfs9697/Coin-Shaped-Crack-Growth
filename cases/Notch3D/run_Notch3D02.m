@@ -177,13 +177,12 @@ function [ctx, state] = do_initial_elastic_step(ctx, state, C, fid)
 error('do_initial_elastic_step: TODO (move legacy kdt==0 block here).');
 end
 
-function sig = Sigma_of_dt(dt, ctx, state, C)
-% Sigma(dt) = required stress/load factor produced by the inner solve.
-% In your legacy script this is Ucurr(dt, kD, ci) which internally sets K/Ftsig and calls F1.
-%
-% Here we keep that behavior but with explicit ctx/state.
-error('Sigma_of_dt: TODO (wrap your Ucurr/F1 pipeline here).');
+function sig = Sigma_of_dt(dt, ctx, state, cfg)
+    [sig, state2] = Ucurr_core(dt, cfg, ctx, state);
+    % IMPORTANT: Sigma_of_dt should NOT mutate the caller state during probing,
+    % otherwise dt bracketing becomes path-dependent. So we discard state2 here.
 end
+
 
 function [ctx, state, diag] = advance_one_increment(ctx, state, C, fid)
 % Move the big per-element loop and all updates here, unchanged.

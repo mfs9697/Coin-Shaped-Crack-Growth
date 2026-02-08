@@ -1,45 +1,88 @@
-function C = cfg_Notch3D02()
-%CFG_NOTCH3D02  Configuration for Notch3D case (parameters only).
+function cfg = cfg_Notch3D02()
+%CFG_NOTCH3D02  Notch3D case configuration (parameters only).
 %
-% Keep this file free of heavy computations and mesh loops.
-% It should only define numeric parameters, switches, and solver options.
+% Keep it lightweight: no mesh loops, no assembly.
+% This struct is intentionally compatible with Ucurr_core() expectations.
 
-C = struct();
+cfg = struct();
 
-% --- time stepping / continuation ---
-C.nt          = 100;     % number of increments
-C.dt_min      = 1e-4;    % strictly positive
-C.dt_max      = 1e+1;    % cap for bracketing (tune later)
-C.dt_guess    = 0.1;     % legacy (used only if you keep dt-fsolve temporarily)
-C.bracketGrow = 2;       % dt growth factor for bracketing
-C.use_fzero   = true;    % switch outer dt solver: true=fzero, false=fsolve
+% -------------------------
+% Problem meta
+% -------------------------
+cfg.meta.caseName = 'Notch3D02';
+cfg.meta.meshFile = '';   % TODO: set your Notch mesh file path (COMSOL export) or generator output
 
-% --- control rule ---
-C.p      = 5;            % kD stepping granularity (legacy)
-C.epsTol = 1e-12;        % small tolerance used in comparisons
+% -------------------------
+% Geometry / mesh (placeholder)
+% -------------------------
+% If you have a Notch mesh generator, put its knobs here.
+cfg.geom = struct();  % TODO fill as needed
+cfg.mesh = struct();  % TODO fill as needed
 
-% --- load level (target stress / load factor) ---
-% In your legacy code: sig = sc1 * .45;  (if sc1 is known only after init, set later)
-C.sig_factor = 0.45;     % multiply by sc1 to get target sigma
+% Element / integration
+cfg.elem.nelnodes = 10;     % locked to T10 in your codebase
+cfg.elem.nip3     = 4;      % typical; set to what your legacy Notch used
 
-% --- plotting / output ---
-C.doPlot   = true;
-C.pauseSec = 0.0;
+% -------------------------
+% Material (visco) parameters
+% -------------------------
+% ViscMod(mat) expects mat fields shown in ViscMod.m :contentReference[oaicite:5]{index=5}
+cfg.mat = struct();
+cfg.mat.Et_inst = 1;        % TODO
+cfg.mat.Ep_inst = 1;        % TODO
+cfg.mat.Gt_inst = 1;        % TODO
+cfg.mat.nu32    = 0.3;      % TODO
+cfg.mat.nup     = 0.3;      % TODO
+cfg.mat.tau_k   = [1];      % TODO vector
+cfg.mat.ratio_E3_relax = 2; % TODO
+cfg.mat.ratio_E2_relax = 2; % TODO
+cfg.mat.ratio_G_relax  = 2; % TODO
 
-% --- solver options (keep close to legacy) ---
-C.opt_inner = optimoptions('fsolve', ...
+% -------------------------
+% Cohesive law parameters (must match F0a_core usage)
+% -------------------------
+cfg.coh = struct();
+cfg.coh.sc1 = 1;     % scaling used in F0a_core (ctx.sc1) :contentReference[oaicite:6]{index=6}
+cfg.coh.a1  = 1;     % G() parameter
+cfg.coh.a2  = 1;     % G() parameter
+cfg.coh.Dym = 1;     % opening scale (ctx.Dym)
+
+% -------------------------
+% Control / stepping
+% -------------------------
+cfg.ctrl = struct();
+cfg.ctrl.nt      = 100;
+cfg.ctrl.p       = 5;
+cfg.ctrl.dt_min  = 1e-4;
+cfg.ctrl.dt_max  = 1e+1;
+cfg.ctrl.dt_guess = 0.1;
+cfg.ctrl.use_fzero   = true;
+cfg.ctrl.bracketGrow = 2;
+
+% Target “external” stress level for dt selection:
+% In your legacy Notch snippet: sig = sc1*0.45
+cfg.ctrl.sig_target = cfg.coh.sc1 * 0.45;
+
+% -------------------------
+% Solver options (inner equilibrium and outer dt)
+% -------------------------
+cfg.solve = struct();
+
+% Ucurr_core currently calls:
+%   fsolve(fun, [state.dU0; 0.01*state.sig], cfg.solve.fsolve_F0c) :contentReference[oaicite:7]{index=7}
+cfg.solve.fsolve_F0c = optimoptions('fsolve', ...
     'Display','off', ...
-    'FunctionTolerance',1e-12, ...
-    'StepTolerance',1e-12, ...
+    'FunctionTolerance', 1e-12, ...
+    'StepTolerance',     1e-12, ...
     'OptimalityTolerance',1e-12, ...
-    'MaxIterations',200);
+    'MaxIterations', 200);
 
-C.opt_dt_fsolve = optimoptions('fsolve', ...
+cfg.solve.fsolve_dt = optimoptions('fsolve', ...
     'Display','off', ...
-    'FunctionTolerance',1e-12, ...
-    'StepTolerance',1e-12, ...
+    'FunctionTolerance', 1e-12, ...
+    'StepTolerance',     1e-12, ...
     'OptimalityTolerance',1e-12, ...
-    'MaxIterations',50);
+    'MaxIterations', 50);
 
-C.opt_fzero = optimset('Display','off');  % fzero uses optimset
+cfg.solve.fzero = optimset('Display','off');
 end

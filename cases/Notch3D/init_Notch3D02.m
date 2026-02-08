@@ -1,73 +1,57 @@
-function [ctx, state, C] = init_Notch3D02(C)
-%INIT_NOTCH3D02  Build ctx/state for Notch3D case.
-%
-% ctx   : constants (mesh, operators, material parameters, indices)
-% state : evolving vars (U, S, Fpsig, Ftsig, ci, kD, etc.)
-%
-% IMPORTANT: Initially, it’s okay if you keep some legacy globals,
-% but the goal is to progressively move them into ctx/state.
+function [ctx, state] = init_Notch3D02(cfg)
+%INIT_NOTCH3D02  Initialize Notch3D ctx/state (globals-free path).
 
-ctx   = struct();
+ctx = struct();
 state = struct();
 
 % -------------------------
-% 1) Load/build mesh & FE data
+% 1) Mesh / FE operators
 % -------------------------
-% TODO: move your legacy mesh import/build here:
-% - coords, connect, nnodes, nelem, ndof, ...
-% - nip3, xip3, w3, velem, BN handle, Nextr, etc.
+% TODO: You must load/build your Notch mesh here.
+% You likely have a COMSOL mesh file, like in init_problem() :contentReference[oaicite:9]{index=9}
 %
-% Example placeholders:
-% ctx.coords   = coords;
-% ctx.connect  = connect;
-% ctx.nnodes   = nnodes;
-% ctx.nelem    = nelem;
-% ctx.ndof     = ndof;
+% Suggested pattern:
+%   [coords, connect4, model] = Crack3D_loadMesh_COMSOL(cfg.meta.meshFile);
+%   [coords, connect, ~] = T4toT10(coords, connect4);  % if needed
+%   ... compute velem, quadrature, fixvars, etc.
+%
+% For now we error clearly if missing:
+if isempty(cfg.meta.meshFile)
+    error('init_Notch3D02: cfg.meta.meshFile is empty. Set it to your Notch COMSOL mesh path.');
+end
 
 % -------------------------
-% 2) Cohesive index mapping (ci, vc, jc, etc.)
+% 2) Viscoelastic material (ctx.M, ctx.Em, ctx.rhom, ctx.tEi)
 % -------------------------
-% TODO: move your legacy cohesive mapping here:
-% - compute cohlsym/cohlsym sorting, vcls, etc.
-% - set vc, jc, etc.
+[ctx.M, ctx.Eo, ctx.Em, ctx.rhom, ctx.tEi] = ViscMod(cfg.mat);
 
 % -------------------------
-% 3) Viscoelastic material precompute
+% 3) Cohesive parameters copied into ctx
 % -------------------------
-% Legacy block:
-% [M,Eo,Em,rhom,tEi]=ViscMod();
-% zetamn=rhom; etamn=rhom;
-%
-% Store them in ctx or state:
-% ctx.M = M; ctx.Eo = Eo; ctx.Em = Em; ctx.rhom = rhom; ctx.tEi = tEi;
+ctx.sc1 = cfg.coh.sc1;
+ctx.a1  = cfg.coh.a1;
+ctx.a2  = cfg.coh.a2;
+ctx.Dym = cfg.coh.Dym;
 
 % -------------------------
-% 4) Initialize evolving state arrays
+% 4) State arrays (allocate after ndof/nelem/nip3 known)
 % -------------------------
-% Legacy:
-% U=zeros(ndof,1); dU=U; Fpsig=U; Ftsig=U;
-% S=zeros(6,6,nip3*nelem,M);
-% sigzip=zeros(nelem*nip3,1); ...
-%
+% TODO after you load mesh:
+% ctx.ndof, ctx.nelem, ctx.nip3, ctx.eldf must exist
+% then allocate:
 % state.U      = zeros(ctx.ndof,1);
-% state.dU0    = zeros(ctx.ndof,1);      % initial guess for inner solve
+% state.dU0    = zeros(ctx.ndof,1);
 % state.Fpsig  = zeros(ctx.ndof,1);
 % state.Ftsig  = zeros(ctx.ndof,1);
 % state.S      = zeros(6,6,ctx.nip3*ctx.nelem,ctx.M);
 % state.sigzip = zeros(ctx.nelem*ctx.nip3,1);
-% state.t1     = zeros(C.nt+1,1);
+% state.t1     = zeros(cfg.ctrl.nt+1,1);
 
-% -------------------------
-% 5) Initial control values
-% -------------------------
+% Control indices
 state.ci = 1;
-state.kD = NaN;  % will be set after initial elastic step
+state.kD = 0;
 
-% -------------------------
-% 6) Define target load now if it depends on sc1
-% -------------------------
-% If sc1 is known only after mesh/material init:
-% C.sig_target = ctx.sc1 * C.sig_factor;
-% else set directly in cfg.
+% Needed by Ucurr_core for initial guess:
+state.sig = cfg.ctrl.sig_target;
 
 end
