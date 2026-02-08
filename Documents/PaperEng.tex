@@ -1,0 +1,355 @@
+\documentclass[11pt,a4paper]{article}
+
+% =====================================================
+% Encoding and language
+% =====================================================
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+
+% =====================================================
+% Page layout
+% =====================================================
+\usepackage[
+left=30mm,
+right=30mm,
+top=30mm,
+bottom=30mm
+]{geometry}
+
+% =====================================================
+% Mathematics and symbols
+% =====================================================
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{bm}
+\usepackage{mathtools}
+
+% =====================================================
+% Figures and tables
+% =====================================================
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+
+% =====================================================
+% References
+% =====================================================
+\usepackage[numbers]{natbib}
+
+% =====================================================
+% Document
+% =====================================================
+\title{Algorithmic Framework for Quasi-Static Crack Growth\\
+	in Viscoelastic Transversely Isotropic Media}
+\author{Mikhailo Selivanov}
+\date{\today}
+
+\begin{document}
+	\maketitle
+	
+	\begin{abstract}
+		This document presents a baseline formulation of a numerical framework for
+		modeling delayed fracture and quasi-static crack growth in viscoelastic
+		transversely isotropic solids using a cohesive zone approach and incremental
+		constitutive equations.
+		
+		The constitutive modeling, fracture criteria, and finite element formulation
+		are described in a consistent manner. However, the algorithm for determining
+		time increments during crack incubation and propagation is acknowledged to be
+		provisional. In particular, for certain load and crack configurations, the time
+		increment could not be reliably determined, which may affect quantitative
+		conclusions drawn from earlier numerical results.
+		
+		The present document therefore serves as a reference formulation for further
+		algorithmic refinement and code development rather than as a source of validated
+		numerical predictions.
+	\end{abstract}
+	
+	\section{Scope and limitations of the present formulation}
+	
+	The purpose of this document is to fix the mechanical model, notation, and
+	overall algorithmic intent before revising the numerical procedure for time
+	integration. While the viscoelastic constitutive relations and the cohesive-zone
+	fracture framework are considered reliable, the time-stepping strategy used in
+	earlier computations requires reassessment.
+	
+	Consequently, numerical results reported previously should be interpreted as
+	illustrative only and not as quantitatively validated predictions.
+	
+	\section{Problem statement}
+	
+	We consider a solid body containing a pre-existing crack subjected to
+	quasi-static loading. The material outside the fracture process zone is modeled
+	as a linear viscoelastic transversely isotropic medium. Crack initiation and
+	propagation are described using a cohesive zone model with a prescribed
+	traction--separation law.
+	
+	The analysis is restricted to small deformations and isothermal conditions.
+	Body forces are neglected.
+	
+	\section{Viscoelastic constitutive formulation}
+	
+	The stress--strain relationship is written in the Boltzmann--Volterra form
+	\begin{equation}
+		\sigma_{ij}(t) =
+		\int_{-\infty}^{t}
+		C_{ijkl}(t-\tau)\,
+		\frac{\partial \varepsilon_{kl}(\tau)}{\partial \tau}
+		\,\mathrm{d}\tau ,
+	\end{equation}
+	where $C_{ijkl}(t)$ are the relaxation functions of a non-aging viscoelastic
+	transversely isotropic material.
+	
+	For numerical implementation, the constitutive equations are rewritten in
+	incremental form using internal variables, allowing efficient evaluation within
+	a finite element framework.
+	
+	\subsection{Incremental quasi-static formulation}
+	\label{sec:incremental_qs}
+	
+	The evolution of the crack and the associated viscoelastic response is modeled
+	as a sequence of quasi-static increments. Each increment connects two
+	equilibrium states and is characterized by an unknown time duration
+	$\Delta t>0$, which is determined as part of the solution rather than prescribed
+	\emph{a priori}.
+	
+	At the beginning of an increment, the current state of the system is assumed
+	known, including the displacement field, the internal viscoelastic history
+	variables, and the position of the active cohesive zone. Within the increment,
+	the response is governed by a viscoelastic constitutive law and a nonlinear
+	cohesive traction--separation relation.
+	
+	\paragraph{Incremental equilibrium problem.}
+	For a given trial value of $\Delta t$, the viscoelastic constitutive update
+	yields an effective tangent stiffness operator $\mathbf{K}(\Delta t)$ and a
+	history-dependent residual force vector $\mathbf{F}^{t\sigma}(\Delta t)$.
+	The incremental equilibrium problem is then formulated as a coupled system for
+	the displacement increment $\Delta\mathbf{u}$ and a scalar load parameter
+	$\Sigma$:
+	\begin{equation}
+		\mathbf{K}(\Delta t)\,\Delta\mathbf{u}
+		-
+		\left(
+		\Sigma\,\mathbf{r}_\mathrm{ext}
+		+
+		\mathbf{r}_\mathrm{c}(\Delta\mathbf{u})
+		-
+		\mathbf{F}^{p\sigma}
+		+
+		\mathbf{F}^{t\sigma}(\Delta t)
+		\right)
+		= \mathbf{0},
+		\label{eq:incremental_equilibrium}
+	\end{equation}
+	where $\mathbf{r}_\mathrm{ext}$ denotes the external load vector,
+	$\mathbf{r}_\mathrm{c}$ is the cohesive force vector, and
+	$\mathbf{F}^{p\sigma}$ represents the contribution of stresses accumulated in
+	previous increments.
+	
+	To ensure a unique solution of the incremental problem, an additional
+	kinematic constraint is imposed. In the present work, the constraint prescribes
+	the opening displacement at a selected cohesive index $c_i$,
+	\begin{equation}
+		u_{c_i} + \Delta u_{c_i} = \frac{k_D D_\mathrm{ym}}{2},
+		\label{eq:opening_constraint}
+	\end{equation}
+	where $k_D$ is a dimensionless control parameter and $D_\mathrm{ym}$ is a
+	characteristic opening scale.
+	
+	Equations~\eqref{eq:incremental_equilibrium} and
+	\eqref{eq:opening_constraint} form a coupled nonlinear system for
+	$(\Delta\mathbf{u},\Sigma)$, which is solved quasi-statically for each trial
+	value of $\Delta t$.
+	
+	\paragraph{Continuation condition for the time increment.}
+	For a fixed internal state and control parameter $k_D$, the solution of the
+	incremental problem yields a scalar quantity $\Sigma(\Delta t)$, representing
+	the external load required to satisfy equilibrium and the imposed opening
+	constraint over an increment of duration $\Delta t$.
+	
+	The admissible time increment is defined by the scalar continuation condition
+	\begin{equation}
+		\Sigma(\Delta t) = \Sigma_{\mathrm{ext}},
+		\label{eq:dt_condition}
+	\end{equation}
+	where $\Sigma_{\mathrm{ext}}$ is the prescribed external load level. The
+	existence of a quasi-static increment therefore reduces to the existence of a
+	root of Eq.~\eqref{eq:dt_condition} for $\Delta t>0$.
+	
+	\paragraph{Physical interpretation.}
+	In the adopted viscoelastic formulation, increasing $\Delta t$ enhances stress
+	relaxation and reduces the effective stiffness of the structure. As a result,
+	the function $\Sigma(\Delta t)$ is expected to decrease with increasing
+	$\Delta t$ along a continuously tracked equilibrium branch. The limiting case
+	$\Delta t\to 0^{+}$ corresponds to an instantaneous elastic response, while
+	large values of $\Delta t$ approach the fully relaxed regime.
+	
+	If Eq.~\eqref{eq:dt_condition} admits no solution for $\Delta t>0$, no
+	quasi-static increment exists that satisfies the prescribed loading and
+	constraint. This criterion provides a physically meaningful distinction between
+	the non-existence of quasi-static solutions and purely numerical convergence
+	issues.
+	
+	
+	\section{Cohesive zone model}
+	
+	Crack growth is modeled by a cohesive zone located ahead of the crack tip.
+	The normal cohesive traction is assumed to depend on the local crack opening
+	displacement $\Delta$ via a prescribed traction--separation law
+	\begin{equation}
+		T = T(\Delta),
+	\end{equation}
+	which is assumed to be non-negative and vanishing at a critical opening
+	$\Delta_{\max}$.
+	
+	Crack propagation is governed by the condition
+	\begin{equation}
+		\Delta(\lambda,t) = \Delta_{\max},
+	\end{equation}
+	where $\lambda$ denotes the current crack length.
+	
+	\section{Algorithmic structure}
+	
+	The computational procedure conceptually consists of the following stages:
+	\begin{enumerate}
+		\item instantaneous elastic response at load application;
+		\item crack incubation under viscoelastic deformation at fixed crack length;
+		\item quasi-static crack growth under sustained loading.
+	\end{enumerate}
+	
+	At each stage, the displacement field is obtained by enforcing equilibrium and
+	the cohesive traction--separation law. Time increments are determined by solving
+	a nonlinear auxiliary problem that links the applied load, crack geometry, and
+	crack opening.
+	
+	\section{Current status of the time-increment procedure}
+	
+	The determination of time increments represents the most sensitive part of the
+	algorithm. In its current form, the procedure may fail to identify a valid time
+	increment for certain steps of crack incubation or propagation. This deficiency
+	directly affects the reliability of time-dependent results, such as predicted
+	incubation times and crack growth histories.
+	
+	For this reason, the time-integration strategy must be revised and validated
+	before any quantitative conclusions can be drawn.
+	
+	\subsection{Solvability of the time-increment equation}
+	\label{sec:solvability_dt}
+	
+	The key computational step of the proposed framework is the determination of the
+	time increment $\Delta t_n$ from the scalar nonlinear equation
+	\begin{equation}
+		\Sigma(\Delta t_n,\Delta_n,\lambda_n) = \sigma^{(\mathrm{ext})},
+		\label{eq:dt_equation}
+	\end{equation}
+	where $\Sigma(\Delta t,\Delta,\lambda)$ denotes the external load level required to
+	achieve (after the viscoelastic increment of duration $\Delta t$) the prescribed
+	crack-tip opening $\Delta$ for a prescribed crack geometry characterized by
+	$\lambda$. Equation~\eqref{eq:dt_equation} is the natural coupling condition between
+	(i) the incremental viscoelastic update and (ii) the fracture constraint
+	$\Delta(\lambda_n,t_n)=\Delta_n$ imposed at the crack tip while satisfying the
+	cohesive traction--separation law along the cohesive segment.
+	
+	\paragraph{Expected qualitative properties.}
+	For fixed $(\Delta_n,\lambda_n)$, the function $\Sigma(\Delta t,\Delta_n,\lambda_n)$
+	is expected to be non-increasing in $\Delta t$ under bounded creep: increasing the
+	time available for relaxation and creep reduces the load required to attain a
+	given opening. In addition,
+	\begin{equation}
+		\lim_{\Delta t\to 0^+} \Sigma(\Delta t,\Delta_n,\lambda_n)
+		=
+		\Sigma_{\mathrm{inst}}(\Delta_n,\lambda_n),
+	\end{equation}
+	corresponding to the instantaneous (elastic) response.
+	
+	If $\Sigma(\Delta t,\Delta_n,\lambda_n)$ is continuous in $\Delta t$ and admits the
+	limit
+	\[\Sigma_\infty(\Delta_n,\lambda_n)= \lim_{\Delta t\to\infty}\Sigma(\Delta t,\Delta_n,\lambda_n),\]
+	then a sufficient condition for existence of a solution of
+	Eq.~\eqref{eq:dt_equation} is
+	\begin{equation}
+		\Sigma_\infty(\Delta_n,\lambda_n) \le \sigma^{(\mathrm{ext})} \le
+		\Sigma_{\mathrm{inst}}(\Delta_n,\lambda_n).
+		\label{eq:existence_condition}
+	\end{equation}
+	When the inequality is strict and $\Sigma$ is strictly monotone, the solution
+	$\Delta t_n$ is unique.
+	
+	\paragraph{Interpretation of numerical difficulties.}
+	In the present context, Eq.~\eqref{eq:dt_equation} is retained as the correct
+	governing relation for determining $\Delta t_n$. The main issue observed in earlier
+	computations is that the numerical procedure used to solve
+	Eq.~\eqref{eq:dt_equation} may fail to identify $\Delta t_n$ at some steps, even
+	though a root may exist. This motivates the development of a more robust
+	root-finding strategy (e.g., bracketing plus safeguarded iterations) and improved
+	diagnostics for verifying the existence condition~\eqref{eq:existence_condition}
+	at each step.
+	
+	\subsection{Properties of the continuation function $\Sigma(\Delta t)$}
+	\label{sec:sigma_dt}
+	
+	In the incremental quasi-static formulation adopted in this work, the time
+	increment $\Delta t$ is not prescribed \emph{a priori}, but is determined from
+	a scalar continuation condition. For a fixed internal state at the beginning
+	of an increment and a prescribed kinematic control parameter, the equilibrium
+	problem yields a scalar quantity $\Sigma(\Delta t)$, which represents the
+	remote load (or stress) required to satisfy equilibrium and the imposed
+	constraint over the increment of duration $\Delta t$.
+	
+	The admissible time increment is therefore defined implicitly by the scalar
+	equation
+	\begin{equation}
+		\Sigma(\Delta t) = \Sigma_{\mathrm{ext}},
+		\label{eq:sigma_dt_root}
+	\end{equation}
+	where $\Sigma_{\mathrm{ext}}$ denotes the prescribed external load level.
+	
+	\paragraph{Dependence on $\Delta t$.}
+	In the present viscoelastic formulation, the function $\Sigma(\Delta t)$
+	depends on $\Delta t$ through two mechanisms. First, the effective tangent
+	modulus entering the incremental stiffness operator decreases with increasing
+	$\Delta t$, reflecting the transition from instantaneous to relaxed material
+	response. Second, the contribution of the viscoelastic history term increases
+	with $\Delta t$, providing an additional internal driving force that reduces
+	the external load required to reach the prescribed kinematic state.
+	Consequently, along a continuously tracked equilibrium branch,
+	$\Sigma(\Delta t)$ is expected to be a decreasing function of $\Delta t$.
+	
+	\paragraph{Limiting behavior.}
+	In the limit $\Delta t \to 0^{+}$, the viscoelastic relaxation is negligible
+	and the incremental response approaches the instantaneous elastic behavior.
+	In this limit, $\Sigma(\Delta t)$ attains its maximum value. Conversely, for
+	large $\Delta t$, the response approaches the fully relaxed regime and
+	$\Sigma(\Delta t)$ attains its minimum value. This behavior provides a natural
+	basis for determining $\Delta t$ from Eq.~\eqref{eq:sigma_dt_root}.
+	
+	\paragraph{Existence of quasi-static increments.}
+	Equation~\eqref{eq:sigma_dt_root} admits a quasi-static solution if and only if
+	a root of $\Sigma(\Delta t) - \Sigma_{\mathrm{ext}} = 0$ exists for
+	$\Delta t > 0$. The absence of such a root indicates that no quasi-static
+	increment can satisfy the prescribed constraint at the given load level. This
+	criterion provides a physically meaningful distinction between the existence
+	of quasi-static solutions and purely numerical convergence issues.
+	
+	\paragraph{Remarks on monotonicity.}
+	While the above arguments suggest a monotone decrease of $\Sigma(\Delta t)$
+	with $\Delta t$, strict monotonicity is not guaranteed in the presence of
+	material and geometric nonlinearities, such as cohesive softening or changes
+	in the active constraint set. For this reason, the determination of $\Delta t$
+	is performed using a bracketing strategy based on the sign change of
+	$\Sigma(\Delta t) - \Sigma_{\mathrm{ext}}$, rather than relying solely on the
+	convergence behavior of nonlinear solvers.
+	
+	
+	
+	\section{Outlook}
+	
+	Future work will focus on:
+	\begin{itemize}
+		\item reformulating the time-increment determination problem;
+		\item improving robustness and existence guarantees of the auxiliary solver;
+		\item reassessing numerical results after algorithmic correction.
+	\end{itemize}
+	
+	The present document will serve as a stable reference for these developments.
+\end{document}
