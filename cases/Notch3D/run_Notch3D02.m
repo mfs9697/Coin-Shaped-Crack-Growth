@@ -178,8 +178,10 @@ error('do_initial_elastic_step: TODO (move legacy kdt==0 block here).');
 end
 
 function sig = Sigma_of_dt(dt, ctx, state, C)
+    % Probe Sigma(dt) without mutating the calling state
     [sig, ~] = Ucurr_core(dt, C, ctx, state);
 end
+
 
 
 function [ctx, state, diag] = advance_one_increment(ctx, state, C, fid)
