@@ -40,13 +40,6 @@ cleanupObj = onCleanup(@() fclose(fid));
 fprintf(fid, 'run_Notch3D02 started: %s\n', datestr(now));
 fprintf(fid, 'MATLAB version: %s\n\n', version);
 
-%% -------------------------
-% 2) Initialization (init)
-% --------------------------
-% init should build:
-%   ctx: constants (mesh, operators, material constants, indices)
-%   state: evolving variables (U, S, Fpsig, Ftsig, sigzip, ci, kD, ...)
-[ctx, state] = init_Notch3D02(C);
 
 % Optional sanity prints
 fprintf(fid, 'ndof=%d, nelem=%d, nnodes=%d\n', ctx.ndof, ctx.nelem, ctx.nnodes);
