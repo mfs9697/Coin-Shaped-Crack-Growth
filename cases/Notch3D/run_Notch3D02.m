@@ -24,7 +24,8 @@ addpath(genpath(projRoot));
 %% -------------------------
 % 1) Configuration (cfg)
 % --------------------------
-C = cfg_Notch3D02();   % user-defined: returns a struct of parameters
+C = cfg_Notch3D02();
+[ctx, state, C] = init_Notch3D02(C);
 
 % Make output directory (optional but recommended)
 if ~isfield(C,'outDir') || isempty(C.outDir)
