@@ -177,19 +177,13 @@ function [ctx, state] = do_initial_elastic_step(ctx, state, C, fid)
 error('do_initial_elastic_step: TODO (move legacy kdt==0 block here).');
 end
 
-function sig = Sigma_of_dt(dt, ctx, state, cfg)
-    [sig, state2] = Ucurr_core(dt, cfg, ctx, state);
-    % IMPORTANT: Sigma_of_dt should NOT mutate the caller state during probing,
-    % otherwise dt bracketing becomes path-dependent. So we discard state2 here.
+function sig = Sigma_of_dt(dt, ctx, state, C)
+    [sig, ~] = Ucurr_core(dt, C, ctx, state);
 end
 
 
 function [ctx, state, diag] = advance_one_increment(ctx, state, C, fid)
-% Move the big per-element loop and all updates here, unchanged.
-% Must update:
-%   state.U, state.sigzip, state.S, state.Fpsig, state.Ftsig, state.t1, ...
-diag = struct();
-error('advance_one_increment: TODO (move legacy increment update block here).');
+[sig_out, state] = Ucurr_core(state.dt, C, ctx, state);
 end
 
 function do_plots(ctx, state, C)
