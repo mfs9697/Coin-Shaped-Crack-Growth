@@ -1,82 +1,112 @@
 function cfg = cfg_Notch3D02()
-%CFG_NOTCH3D02  Notch3D case configuration (parameters only).
+%CFG_NOTCH3D02  Legacy-conform configuration for Notch3D02 case.
+% One place to edit inputs. No globals here.
 %
-% Keep it lightweight: no mesh loops, no assembly.
-% This struct is intentionally compatible with Ucurr_core() expectations.
+% Conforms to cfg_CoinCrack_TI_legacy style (cfg.solve.*),
+% but also provides Step2-style aliases used in run_Notch3D02/init_Notch3D02.
 
 cfg = struct();
 
-% -------------------------
-% Problem meta
-% -------------------------
+% =========================================================
+% Meta / files
+% =========================================================
 cfg.meta.caseName = 'Notch3D02';
-cfg.meta.meshFile = '';   % TODO: set your Notch mesh file path (COMSOL export) or generator output
 
-% -------------------------
-% Geometry / mesh (placeholder)
-% -------------------------
-% If you have a Notch mesh generator, put its knobs here.
-cfg.geom = struct();  % TODO fill as needed
-cfg.mesh = struct();  % TODO fill as needed
+% Geometry files are hardcoded in init_Notch3D02.m as:
+%   cases/Notch3D/Geometry/crd05.txt
+%   cases/Notch3D/Geometry/con05.txt
+% so no need to specify meshFile here unless you want.
 
-% Element / integration
-cfg.elem.nelnodes = 10;     % locked to T10 in your codebase
-cfg.elem.nip3     = 4;      % typical; set to what your legacy Notch used
+% =========================================================
+% Geometry constants used in legacy BC logic
+% =========================================================
+cfg.geom.e    = 1e-8;
+cfg.geom.b1   = 1.5;
+cfg.geom.lcoh = 3.0;
 
-% -------------------------
-% Material (visco) parameters
-% -------------------------
-% ViscMod(mat) expects mat fields shown in ViscMod.m :contentReference[oaicite:5]{index=5}
-cfg.mat = struct();
-cfg.mat.Et_inst = 1;        % TODO
-cfg.mat.Ep_inst = 1;        % TODO
-cfg.mat.Gt_inst = 1;        % TODO
-cfg.mat.nu32    = 0.3;      % TODO
-cfg.mat.nup     = 0.3;      % TODO
-cfg.mat.tau_k   = [1];      % TODO vector
-cfg.mat.ratio_E3_relax = 2; % TODO
-cfg.mat.ratio_E2_relax = 2; % TODO
-cfg.mat.ratio_G_relax  = 2; % TODO
 
-% -------------------------
-% Cohesive law parameters (must match F0a_core usage)
-% -------------------------
+% =========================================================
+% Viscoelastic parameters
+% =========================================================
+
+cfg.mat.ro  = 20;
+cfg.mat.E20 = 4;  cfg.mat.E2i = 1;
+cfg.mat.E30 = 4;  cfg.mat.E3i = 1;
+cfg.mat.nu21 = 0.3;
+cfg.mat.nu32 = 0.3;
+
+cfg.mat.G0=cfg.mat.E30/2/(1+cfg.mat.nu32); 
+cfg.mat.Gi=cfg.mat.E3i/2/(1+cfg.mat.nu32); 
+cfg.mat.G1=cfg.mat.G0-cfg.mat.Gi;
+
+% =========================================================
+% Cohesive law (TSL) parameters 
+% =========================================================
+
 cfg.coh = struct();
-cfg.coh.sc1 = 1;     % scaling used in F0a_core (ctx.sc1) :contentReference[oaicite:6]{index=6}
-cfg.coh.a1  = 1;     % G() parameter
-cfg.coh.a2  = 1;     % G() parameter
-cfg.coh.Dym = 1;     % opening scale (ctx.Dym)
 
-% -------------------------
-% Control / stepping
-% -------------------------
-cfg.ctrl = struct();
-cfg.ctrl.nt      = 100;
-cfg.ctrl.p       = 5;
-cfg.ctrl.dt_min  = 1e-4;
-cfg.ctrl.dt_max  = 1e+1;
-cfg.ctrl.dt_guess = 0.1;
-cfg.ctrl.use_fzero   = true;
-cfg.ctrl.bracketGrow = 2;
+cfg.coh.phi1 = 150;
 
-% Target “external” stress level for dt selection:
-% In your legacy Notch snippet: sig = sc1*0.45
-cfg.ctrl.sig_target = cfg.coh.sc1 * 0.45;
+cfg.coh.a1 = 0.001;
+cfg.coh.a2 = cfg.coh.a1;
 
-% -------------------------
-% Solver options (inner equilibrium and outer dt)
-% -------------------------
+cfg.coh.sc1 = 4/1000;
+
+c = (3 - 2*cfg.coh.a1 + 3*cfg.coh.a2)/6;
+cfg.coh.Dym = cfg.coh.phi1 / c / cfg.coh.sc1 * 1e-7;
+
+% ---- flat aliases expected by init_Notch3D02 / F0a_core ----
+cfg.sc1 = cfg.coh.sc1;
+cfg.a1  = cfg.coh.a1;
+cfg.a2  = cfg.coh.a2;
+cfg.Dym = cfg.coh.Dym;
+
+
+% =========================================================
+% Solver / time loop (legacy-style block)
+% =========================================================
 cfg.solve = struct();
 
-% Ucurr_core currently calls:
-%   fsolve(fun, [state.dU0; 0.01*state.sig], cfg.solve.fsolve_F0c) :contentReference[oaicite:7]{index=7}
-cfg.solve.fsolve_F0c = optimoptions('fsolve', ...
-    'Display','off', ...
-    'FunctionTolerance', 1e-12, ...
-    'StepTolerance',     1e-12, ...
-    'OptimalityTolerance',1e-12, ...
-    'MaxIterations', 200);
+cfg.solve.nt  = 100;          % legacy: nt=100
+cfg.solve.p   = 5;            % legacy: p=5
 
+% legacy Notch: sig = sc1*0.45
+cfg.solve.sig = 0.45 * cfg.coh.sc1;
+
+% dt controls
+cfg.solve.dt0     = 1e-4;     % legacy Notch probe dt0=1e-4
+cfg.solve.dt_max  = 1e+1;     % safe cap (can be larger if needed)
+cfg.solve.dt_guess = 0.1;     % legacy-ish initial guess for dt solve
+
+% A small tolerance used in control stepping (kD < 1-e)
+cfg.solve.epsTol = 1e-12;
+
+% =========================================================
+% Root-finding controls (dt via fzero)
+% =========================================================
+cfg.solve.use_fzero   = true;
+cfg.solve.bracketGrow = 2.0;
+
+cfg.solve.fzero_dt = optimset( ...
+    'Display',      'off', ...
+    'TolX',         1e-10, ...
+    'MaxIter',      80, ...
+    'MaxFunEvals',  200 );
+
+% =========================================================
+% Inner equilibrium solver options (F0c/F0a in your code)
+% =========================================================
+% In CoinCrack legacy:
+%   optimset('Display','off','Jacobian','on','MaxFunEvals',50)
+% Keep same spirit.
+cfg.solve.fsolve_F0c = optimset( ...
+    'Display',   'off', ...
+    'Jacobian',  'on', ...
+    'MaxFunEvals', 80, ...
+    'TolFun',    1e-12, ...
+    'TolX',      1e-12 );
+
+% Optional: if you still keep dt-fsolve temporarily
 cfg.solve.fsolve_dt = optimoptions('fsolve', ...
     'Display','off', ...
     'FunctionTolerance', 1e-12, ...
@@ -84,5 +114,26 @@ cfg.solve.fsolve_dt = optimoptions('fsolve', ...
     'OptimalityTolerance',1e-12, ...
     'MaxIterations', 50);
 
-cfg.solve.fzero = optimset('Display','off');
+% =========================================================
+% Step2-style aliases (so run_Notch3D02 can use one namespace)
+% =========================================================
+cfg.nt          = cfg.solve.nt;
+cfg.p           = cfg.solve.p;
+
+cfg.sig_target  = cfg.solve.sig;       % used in init + driver
+cfg.dt_min      = cfg.solve.dt0;
+cfg.dt_max      = cfg.solve.dt_max;
+cfg.dt_guess    = cfg.solve.dt_guess;
+
+cfg.use_fzero   = cfg.solve.use_fzero;
+cfg.bracketGrow = cfg.solve.bracketGrow;
+cfg.opt_fzero   = cfg.solve.fzero_dt;
+
+cfg.epsTol      = cfg.solve.epsTol;
+
+% If your driver uses these names:
+cfg.opt_dt_fsolve = cfg.solve.fsolve_dt;
+
+% keep solver options under cfg.solve as expected by Ucurr_core
+% (Ucurr_core uses cfg.solve.fsolve_F0c)
 end
