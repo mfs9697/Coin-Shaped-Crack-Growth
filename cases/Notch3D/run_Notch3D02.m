@@ -24,24 +24,11 @@ addpath(genpath(projRoot));
 
 %% Config + init
 C = cfg_Notch3D02();
-[ctx, state, C] = init_Notch3D02(C);
+[ctx, state] = init_Notch3D02(C);
 
-%% Output folder + log
-if ~isfield(C,'outDir') || isempty(C.outDir)
-    ts = datestr(now,'yyyymmdd_HHMMSS');
-    C.outDir = fullfile(projRoot, 'out', ['Notch3D02_' ts]);
-end
-if ~exist(C.outDir,'dir'); mkdir(C.outDir); end
-
-logFile = fullfile(C.outDir, 'log.txt');
-fid = fopen(logFile,'w');
-cleanupObj = onCleanup(@() fclose(fid)); %#ok<NASGU>
-fprintf(fid, 'run_Notch3D02 started: %s\n', datestr(now));
-fprintf(fid, 'MATLAB version: %s\n\n', version);
-
-fprintf(fid, 'ndof=%d, nelem=%d, nnodes=%d, nip3=%d, M=%d\n', ...
+fprintf('ndof=%d, nelem=%d, nnodes=%d, nip3=%d, M=%d\n', ...
     ctx.ndof, ctx.nelem, ctx.nnodes, ctx.nip3, ctx.M);
-fprintf(fid, 'Initial ci=%d\n\n', state.ci);
+fprintf('Initial ci=%d\n\n', state.ci);
 
 %% Main loop
 for kdt = 0:C.nt
@@ -49,7 +36,7 @@ for kdt = 0:C.nt
 
     if kdt == 0
         % Elastic init (matches legacy: K(Eo), then fsolve(F0c), then kD)
-        [ctx, state] = do_initial_elastic_step(ctx, state, C, fid);
+        [ctx, state] = do_initial_elastic_step(ctx, state, C);
         % After kdt==0, update stepping rule once (legacy did this after plotting)
         state = update_control_indices(ctx, state, C);
         continue;
@@ -62,21 +49,21 @@ for kdt = 0:C.nt
     dt_max = C.dt_max;
 
     sig_min = Sigma_of_dt(dt_min, ctx, state, C);
-    fprintf(fid, 'kdt=%d: Sigma(dt_min)=%.6e, target=%.6e\n', kdt, sig_min, sig_target);
+    fprintf('kdt=%d: Sigma(dt_min)=%.6e, target=%.6e\n', kdt, sig_min, sig_target);
 
     % If Sigma(dt_min) <= target, no admissible quasi-static dt (under this control)
     if sig_min <= sig_target
-        fprintf(fid, 'Stop: Sigma(dt_min) <= target (no admissible quasi-static dt)\n');
+        fprintf('Stop: Sigma(dt_min) <= target (no admissible quasi-static dt)\n');
         break;
     end
 
     if isfield(C,'use_fzero') && C.use_fzero
         g = @(dt) Sigma_of_dt(dt, ctx, state, C) - sig_target;
         [dt, info] = dt_bracket_and_fzero(g, dt_min, dt_max, C.bracketGrow, C);
-        fprintf(fid,'  bracket: dtL=%.3e gL=%.3e | dtR=%.3e gR=%.3e | %s\n', ...
+        fprintf('  bracket: dtL=%.3e gL=%.3e | dtR=%.3e gR=%.3e | %s\n', ...
             info.dtL, info.gL, info.dtR, info.gR, info.status);
         if ~isfinite(dt)
-            fprintf(fid,'Stop: no root bracketed in [dt_min, dt_max].\n');
+            fprintf('Stop: no root bracketed in [dt_min, dt_max].\n');
             break;
         end
     else
@@ -90,7 +77,7 @@ for kdt = 0:C.nt
     state.dt = dt;
 
     % ---- accept step: compute dU + update history consistently ----
-    [ctx, state, diag] = advance_one_increment(ctx, state, C, fid); %#ok<NASGU>
+    [ctx, state, diag] = advance_one_increment(ctx, state, C); %#ok<NASGU>
 
     % ---- plots (optional) ----
     if isfield(C,'doPlot') && C.doPlot
@@ -105,13 +92,13 @@ for kdt = 0:C.nt
     end
 end
 
-fprintf(fid, '\nrun_Notch3D02 finished: %s\n', datestr(now));
+fprintf('\nrun_Notch3D02 finished: %s\n', datestr(now));
 end
 
 %% ========================================================================
 % kdt==0 elastic step (legacy-faithful via F0c_core)
 % ========================================================================
-function [ctx, state] = do_initial_elastic_step(ctx, state, C, fid)
+function [ctx, state] = do_initial_elastic_step(ctx, state, C)
 
 % Elastic stiffness
 if ~isfield(ctx,'Eo')
@@ -147,7 +134,7 @@ state.kD = 2*du(state.vc(1)) / ctx.Dym;
 % Initialize time
 state.t1(1) = 0;
 
-fprintf(fid,'kdt=0: sig_ext=%.6e | kD=%.6e\n', state.sig, state.kD);
+fprintf('kdt=0: sig_ext=%.6e | kD=%.6e\n', state.sig, state.kD);
 end
 
 %% ========================================================================
@@ -160,8 +147,20 @@ end
 %% ========================================================================
 % Accept one increment: call Ucurr_core then update U,S,Fpsig,time
 % ========================================================================
-function [ctx, state, diag] = advance_one_increment(ctx, state, C, fid)
+function [ctx, state, diag] = advance_one_increment(ctx, state, C)
 diag = struct();
+
+% --- sanity ---
+if ~isfield(ctx,'Nextr') || isempty(ctx.Nextr)
+    error('advance_one_increment:MissingNextr', ...
+        'ctx.Nextr is missing. Call [xip3,w3,Nextr]=IntegrationParameters(nip3,nelnodes,@N_3DT) in init.');
+end
+if ~isfield(state,'sigzip') || isempty(state.sigzip)
+    state.sigzip = zeros(ctx.nelem*ctx.nip3,1);
+end
+if ~isfield(state,'sigz') || isempty(state.sigz)
+    state.sigz = zeros(ctx.nnodes,1);
+end
 
 % 1) Get dU, K(dt), Ftsig(dt), zeta/eta(dt), and sigma_out
 [sig_out, state_new] = Ucurr_core(state.dt, C, ctx, state);
@@ -175,16 +174,18 @@ state.tE     = state_new.tE;
 state.dU     = state_new.dU;
 
 state.sig = sig_out;
-
 dU = state.dU;
 
 % 2) Update displacement
-state.U  = state.U + dU;
+state.U   = state.U + dU;
 state.dU0 = dU;  % next initial guess
 
-% 3) Update internal history S at integration points (legacy scheme)
+% 3) Update internal history S + update sigzip (LEGACY-ORDER) + build nodal sigz
 M     = ctx.M;
 indU  = zeros(ctx.eldf,1);
+
+sigz_acc = zeros(ctx.nnodes,1);
+w_acc    = zeros(ctx.nnodes,1);
 
 for el = 1:ctx.nelem
     nod = ctx.connect(:,el);
@@ -192,18 +193,51 @@ for el = 1:ctx.nelem
         indU((3*j-2):(3*j)) = (3*nod(j)-2):(3*nod(j));
     end
 
+    % loop IPs
     for ip = 1:ctx.nip3
-        B3 = B(ctx.xip3(:,ip), el, ctx);
-        deps = B3 * dU(indU);              % 6x1
+        B3    = B(ctx.xip3(:,ip), el, ctx);
+        deps  = B3 * dU(indU);                    % 6x1
         lmnip = (el-1)*ctx.nip3 + ip;
 
+        if state.kdt > 0
+            % tilda sigma from visco history (uses OLD S before update, like legacy)
+            tsig = zeros(6,1);
+            for m = 1:M
+                tsig = tsig + sum((1 - state.zetamn(:,:,m)).*state.S(:,:,lmnip,m), 2);
+            end
+
+            % update sigma_zz at IP (store only component 3, like legacy sigzip)
+            state.sigzip(lmnip) = state.sigzip(lmnip) - tsig(3) + state.tE(3,:)*deps;
+        else
+            % initial elastic step
+            state.sigzip(lmnip) = ctx.Eo(3,:)*deps;
+        end
+
+        % now update visco history S (same as legacy)
         deps1 = repmat(deps', 6, 1);
         for m = 1:M
             state.S(:,:,lmnip,m) = state.zetamn(:,:,m).*state.S(:,:,lmnip,m) + ...
                 state.etamn(:,:,m).*(1 - state.zetamn(:,:,m)).*deps1;
         end
     end
+
+    % Extrapolate IP sigma_zz -> nodal sigma_zz for this element, then volume-average
+    elIPs = (el-1)*ctx.nip3 + (1:ctx.nip3);
+    sigzv = ctx.Nextr * state.sigzip(elIPs);
+
+    w = ctx.velem(el);
+    for a = 1:ctx.nelnodes
+        sigz_acc(nod(a)) = sigz_acc(nod(a)) + w*sigzv(a);
+        w_acc(nod(a))    = w_acc(nod(a)) + w;
+    end
 end
+
+% Final nodal sigma_z: volume-weight average, scale by sc1, cap at 1
+sigz = sigz_acc ./ max(w_acc, eps);
+sigz = sigz ./ ctx.sc1;
+sigz(sigz > 1) = 1;
+
+state.sigz = sigz;
 
 % 4) Update force history (legacy: Fpsig = K*dU + Fpsig - Ftsig)
 state.Fpsig = state.K*dU + state.Fpsig - state.Ftsig;
@@ -212,22 +246,36 @@ state.Fpsig = state.K*dU + state.Fpsig - state.Ftsig;
 kdt = state.kdt;
 if kdt == 1
     state.t1(2) = state.dt;
-else
+elseif kdt > 1
     state.t1(kdt+1) = state.t1(kdt) + state.dt;
 end
 
-fprintf(fid,'kdt=%d: dt=%.4e | sig=%.6e | ci=%d | kD=%.6e\n', ...
+fprintf('kdt=%d: dt=%.4e | sig=%.6e | ci=%d | kD=%.6e\n', ...
     kdt, state.dt, state.sig, state.ci, state.kD);
 
 diag.sig = state.sig;
 diag.dt  = state.dt;
 end
 
+
 %% ========================================================================
 % Plot hook (optional)
 % ========================================================================
 function do_plots(ctx, state, C) %#ok<INUSD>
-% Keep empty for now, or move your legacy figure(1)/figure(3) plotting here.
+    fact=100; 
+    Mesh.Points   = ctx.coords+fact*reshape(state.U,3,ctx.nnodes);
+    Mesh.Elements = ctx.connect;
+    figure(1); clf(1)
+    
+    plot3D(Mesh,'ColorMapData',state.sigz); hold on
+    plot3D(Mesh,'FaceAlpha',0,'EdgeColor',.6*[1,1,1]); hold on
+    
+    col=(linspace(-.1,1,12))';
+    cmap=jet(length(col)-1);
+    clim([col(1) col(end)]); colormap(cmap);
+    colorbar('Ticks',col); hold on  
+    
+    view(60,-30); axis equal
 end
 
 %% ========================================================================

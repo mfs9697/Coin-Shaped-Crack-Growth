@@ -25,10 +25,18 @@ conFile = fullfile(geomDir,'con05.txt');
 coords_in   = readmatrix(crdFile);     % [nnodes x 3]
 connect4_in = readmatrix(conFile);     % [nelem  x 4]
 
-coords   = coords_in.';                % 3 x nnodes (legacy style)
-connect4 = connect4_in.';              % 4 x nelem
+model = createpde();
+geometryFromMesh(model,coords_in,connect4_in);
 
-[coords, connect] = T4toT10(coords, connect4);   % 10 x nelem
+figure(2); clf(2); 
+subplot(1,2,1); 
+pdegplot(model,"FaceAlpha",0.9); hold on
+view([120,30])
+subplot(1,2,2); 
+pdemesh(model,"FaceAlpha",0.9)
+view([120,30])
+
+[coords, connect] = T4toT10(coords_in, connect4_in);   % 10 x nelem
 
 ctx.coords   = coords;
 ctx.connect  = connect;
@@ -37,12 +45,12 @@ ctx.nelem    = size(connect,2);
 ctx.nelnodes = 10;
 ctx.ndof     = 3*ctx.nnodes;
 ctx.eldf     = 3*ctx.nelnodes;
+ctx.nip3     = 4;
 
 % -------------------------
 % 2) Integration points / weights
 % -------------------------
-[ctx.xip3, ctx.w3] = IntegrationParameters();
-ctx.nip3 = numel(ctx.w3);
+[ctx.xip3, ctx.w3, ctx.Nextr] = IntegrationParameters(ctx.nip3, ctx.nelnodes, @N_3DT);
 
 % -------------------------
 % 3) Element volumes
@@ -69,16 +77,17 @@ ctx.Dym = C.Dym;
 % -------------------------
 % 6) Face operator R and pattern indq0 (matches F0a_core)
 % -------------------------
-ctx.R = [6 -1 -1 0 -4 0 ...
-        -1 6 -1 0 0 -4 ...
-        -1 -1 6 -4 0 0 ...
-         0 0 -4 32 16 16 ...
-        -4 0 0 16 32 16 ...
+ctx.R = [6 -1 -1 0 -4 0 
+        -1 6 -1 0 0 -4 
+        -1 -1 6 -4 0 0 
+         0 0 -4 32 16 16 
+        -4 0 0 16 32 16 
          0 -4 0 16 16 32]/180;
 
 ctx.indq0 = reshape(reshape(1:36,6,6).',36,1);
 ctx.nfnodes  = 6;
 ctx.nfnodes2 = 36;
+ctx.ncoord = 3;
 
 % -------------------------
 % 7) Legacy geometric masks + BCs
@@ -196,16 +205,19 @@ end
 
 % -------------------------
 % 10) Build external load maps je and re (uniform traction in z)
-% -------------------------
-ctx.je = zeros(ctx.nfnodes*ctx.me,1);
-ctx.re = zeros(ctx.nfnodes*ctx.me,1);
+% External traction (constant) on quadratic face: corner weights = 0, midside = A/3
+ctx.je = zeros(ctx.me*3,1);
+ctx.re = zeros(ctx.me*3,1);
 for i = 1:ctx.me
-    el = loadFaces(i,1); f = loadFaces(i,2);
-    fn6 = connect(faces(f,:), el);
+    el = loadFaces(i,1);
+    f  = loadFaces(i,2);
 
-    ind = (i-1)*ctx.nfnodes+(1:ctx.nfnodes);
-    ctx.je(ind) = 3*fn6(:);                 % z-DOFs
-    ctx.re(ind) = loadArea(i)/ctx.nfnodes;  % uniform distribution
+    fn6 = connect(faces(f,:), el);   % [6 nodes]
+    mid = fn6(4:6);                  % midside nodes
+
+    ind = (i-1)*3 + (1:3);
+    ctx.je(ind) = 3*mid(:);          % z-DOFs
+    ctx.re(ind) = loadArea(i)/3;     % consistent weights
 end
 
 % -------------------------

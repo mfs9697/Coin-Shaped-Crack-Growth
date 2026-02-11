@@ -16,25 +16,19 @@ function [M,Eo,Em,rhom,tEi] = ViscMod(mat)
 %   M, Eo, Em, rhom, tEi
 
 % --- required inputs ---
-ro  = mat.tau_k(1);
-
-E30 = mat.Et_inst;                      % instantaneous vertical
-
-% Ratios (kept identical to your legacy meaning)
-ratio_E30_E3i = mat.ratio_E3_relax;
-ratio_E20_E2i = mat.ratio_E2_relax;
-ratio_G0_Gi   = mat.ratio_G_relax;
+ro  = mat.ro;
 
 % Build instantaneous moduli consistently with your earlier mapping
-E20 = mat.Ep_inst;                      % in-plane instantaneous
-G0  = mat.Gt_inst;                      % shear instantaneous
+E30 = mat.E30;                     % instantaneous vertical
+E20 = mat.E20;                     % in-plane instantaneous
+G0  = mat.G0;                      % shear instantaneous
 
 % Relaxed (branch) moduli
-E3i = E30 / ratio_E30_E3i;  E31 = E30 - E3i;
-E2i = E20 / ratio_E20_E2i;  E21 = E20 - E2i;
-Gi  = G0  / ratio_G0_Gi;    G1  = G0  - Gi;
+E3i = mat.E3i;  E31 = E30 - E3i;
+E2i = mat.E2i;  E21 = E20 - E2i;
+Gi  = mat.Gi;   G1  = G0  - Gi;
 
-nu21 = mat.nup;
+nu21 = mat.nu21;
 nu32 = mat.nu32;
 
 g  = nu32^2;

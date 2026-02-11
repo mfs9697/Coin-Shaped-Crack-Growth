@@ -12,6 +12,7 @@ cfg = struct();
 % =========================================================
 cfg.meta.caseName = 'Notch3D02';
 
+
 % Geometry files are hardcoded in init_Notch3D02.m as:
 %   cases/Notch3D/Geometry/crd05.txt
 %   cases/Notch3D/Geometry/con05.txt
@@ -100,7 +101,7 @@ cfg.solve.fzero_dt = optimset( ...
 %   optimset('Display','off','Jacobian','on','MaxFunEvals',50)
 % Keep same spirit.
 cfg.solve.fsolve_F0c = optimset( ...
-    'Display',   'off', ...
+    'Display',   'iter', ...
     'Jacobian',  'on', ...
     'MaxFunEvals', 80, ...
     'TolFun',    1e-12, ...
@@ -134,6 +135,5 @@ cfg.epsTol      = cfg.solve.epsTol;
 % If your driver uses these names:
 cfg.opt_dt_fsolve = cfg.solve.fsolve_dt;
 
-% keep solver options under cfg.solve as expected by Ucurr_core
-% (Ucurr_core uses cfg.solve.fsolve_F0c)
+cfg.doPlot = 1; 
 end
